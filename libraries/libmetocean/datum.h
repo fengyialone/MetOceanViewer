@@ -2,9 +2,19 @@
 #define VDATUM_H
 
 #include <QString>
+#include <QStringList>
 
 namespace Datum {
 enum VDatum { NullDatum, MLLW, MLW, MSL, MHW, MHHW, NGVD29, NAVD88 };
+
+static QStringList vdatumList() {
+  return {"MHHW", "MHW", "MTL", "MSL",  "MLW", "MLLW",
+          "NAVD", "LWI", "HWI", "IGLD", "STND"};
+}
+
+static QStringList noaaDatumList() {
+  return {"none", "MLLW", "MLW", "MSL", "MHW", "MHHW", "NGVD29", "NAVD88"};
+}
 
 static QString datumName(VDatum datum) {
   if (datum == NullDatum)
