@@ -476,7 +476,7 @@ void Hmdf::dataBounds(qint64 &dateMin, qint64 &dateMax, double &minValue,
   maxValue = -std::numeric_limits<double>::max();
   minValue = std::numeric_limits<double>::max();
 
-  for (int i = 0; i < this->nstations(); i++) {
+  for (size_t i = 0; i < this->nstations(); ++i) {
     qint64 tempDateMin, tempDateMax;
     double tempMinValue, tempMaxValue;
     if (!this->station(i)->isNull()) {
@@ -491,7 +491,7 @@ void Hmdf::dataBounds(qint64 &dateMin, qint64 &dateMax, double &minValue,
   return;
 }
 
-bool Hmdf::applyDatumCorrection(Station &s, Datum::VDatum datum) {
+bool Hmdf::applyDatumCorrection(const Station &s, const Datum::VDatum &datum) {
   int ierr = 0;
   for (auto &stn : this->m_station) {
     ierr += stn->applyDatumCorrection(s, datum);
