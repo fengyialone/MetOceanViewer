@@ -87,6 +87,9 @@ void Hmdf::setStation(int index, HmdfStation *station) {
 }
 
 void Hmdf::addStation(HmdfStation *station) {
+  if (station->parent() != this) {
+    station->setParent(this);  //...Take ownership over
+  }
   this->m_station.push_back(station);
 }
 
