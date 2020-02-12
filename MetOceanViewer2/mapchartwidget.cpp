@@ -88,7 +88,11 @@ void MapChartWidget::saveGraphic() {
   }
 }
 
-void MapChartWidget::saveData() {}
+void MapChartWidget::saveData() {
+  if (this->data()) {
+    this->writeData(this->data()->get());
+  }
+}
 
 void MapChartWidget::resetChart() { this->m_chartview->resetZoom(); }
 
@@ -171,8 +175,6 @@ QHBoxLayout *MapChartWidget::generateMapChartLayout() {
 
   this->m_chartview->setContentsMargins(0, 0, 0, 0);
   this->m_mapWidget->setContentsMargins(0, 0, 0, 0);
-
-  this->m_chartview->setStyleSheet("#chart{background-color: white}");
 
   layout->addWidget(this->m_mapWidget);
   layout->addWidget(this->m_chartview);
@@ -271,3 +273,5 @@ ComboBox *MapChartWidget::timezoneCombo() { return this->m_cbx_timezone; }
 void MapChartWidget::setTimezoneCombo(ComboBox *widget) {
   this->m_cbx_timezone = widget;
 }
+
+std::unique_ptr<Hmdf> *MapChartWidget::data() { return &this->m_data; }

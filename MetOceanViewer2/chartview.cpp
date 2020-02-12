@@ -31,19 +31,43 @@
 
 #include "timezone.h"
 
-ChartView::ChartView(QWidget *parent) : QChartView(new QChart(), parent) {
-  this->m_coord = new QGraphicsSimpleTextItem(this->chart());
-  this->m_yAxis = nullptr;
-  this->m_dateAxis = nullptr;
-  this->m_xAxis = nullptr;
-  this->m_statusBar = nullptr;
-  this->m_infoItem = nullptr;
-  this->m_infoRectItem = nullptr;
-  this->m_xTraceLinePtr = nullptr;
-  this->m_yTraceLinePtr = nullptr;
-  this->m_yTraceLine = QLineF();
-  this->m_xTraceLine = QLineF();
+const QStringList c_dateFormats = QStringList() << "MM/dd/yyyy hh:mmap"
+                                                << "MM/dd/yyyy hh:mm"
+                                                << "MM/dd/yyyy"
+                                                << "MM/yyyy"
+                                                << "MM/dd"
+                                                << "MM/dd hhap"
+                                                << "MM/dd hh"
+                                                << "MM/dd hh:mmap"
+                                                << "MM/dd hh:mm";
 
+ChartView::ChartView(QWidget *parent)
+    : QChartView(new QChart(), parent),
+      m_xAxisMin(0.0),
+      m_xAxisMax(0.0),
+      m_yAxisMin(0.0),
+      m_yAxisMax(0.0),
+      m_currentXAxisMin(0.0),
+      m_currentXAxisMax(0.0),
+      m_currentYAxisMin(0.0),
+      m_currentYAxisMax(0.0),
+      m_statusBar(nullptr),
+      m_legendNames(QVector<QString>()),
+      m_series(QVector<QLineSeries *>()),
+      m_yTraceLine(QLineF()),
+      m_xTraceLine(QLineF()),
+      m_yTraceLinePtr(nullptr),
+      m_xTraceLinePtr(nullptr),
+      m_displayValues(false),
+      m_dateAxis(nullptr),
+      m_xAxis(nullptr),
+      m_yAxis(nullptr),
+      m_coord(nullptr),
+      m_style(0),
+      m_infoString(QString()),
+      m_infoRectItem(nullptr),
+      m_infoItem(nullptr) {
+  this->m_coord = new QGraphicsSimpleTextItem(this->chart());
   this->setDragMode(QChartView::NoDrag);
   this->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   this->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -51,23 +75,11 @@ ChartView::ChartView(QWidget *parent) : QChartView(new QChart(), parent) {
   this->setDisplayValues(false);
   this->setRubberBand(QChartView::RectangleRubberBand);
   this->setRenderHint(QPainter::Antialiasing);
-
   this->chart()->setAnimationOptions(QChart::SeriesAnimations);
   this->chart()->legend()->setAlignment(Qt::AlignBottom);
   this->chart()->setTitleFont(QFont("Helvetica", 14, QFont::Bold));
-
   this->m_coord->setPos(this->dateDisplayPosition());
-
-  this->m_displayValues = false;
-  this->m_style = 0;
-  this->x_axis_max = 0.0;
-  this->x_axis_min = 0.0;
-  this->y_axis_max = 0.0;
-  this->y_axis_min = 0.0;
-  this->current_x_axis_max = 0.0;
-  this->current_x_axis_min = 0.0;
-  this->current_y_axis_max = 0.0;
-  this->current_y_axis_min = 0.0;
+  this->setBackground(true);
 }
 
 ChartView::~ChartView() {}
@@ -138,8 +150,8 @@ void ChartView::initializeAxis(int style) {
 void ChartView::setDateFormat(const QString &format) {
   if (this->m_dateAxis) {
     if (format == "auto") {
-      this->setDateFormat(QDateTime::fromMSecsSinceEpoch(this->x_axis_min),
-                          QDateTime::fromMSecsSinceEpoch(this->x_axis_max));
+      this->setDateFormat(QDateTime::fromMSecsSinceEpoch(this->m_xAxisMin),
+                          QDateTime::fromMSecsSinceEpoch(this->m_xAxisMax));
     } else {
       this->dateAxis()->setFormat(format);
     }
@@ -156,6 +168,8 @@ void ChartView::setDateFormat(const QDateTime &start, const QDateTime &end) {
     format = "MM/dd hh:mm";
   this->dateAxis()->setFormat(format);
 }
+
+QStringList ChartView::dateFormats() { return c_dateFormats; }
 
 void ChartView::setAxisLimits(double xmin, double xmax, double ymin,
                               double ymax) {
@@ -213,6 +227,7 @@ void ChartView::initializeLegendMarkers() {
 }
 
 void ChartView::addSeries(QLineSeries *series, QString name) {
+  this->setBackground(false);
   this->m_series.push_back(series);
   this->m_legendNames.push_back(name);
 
@@ -261,12 +276,12 @@ void ChartView::removeTraceLines() {
 
 void ChartView::addXTraceLine(QMouseEvent *event) {
   qreal ymin = this->chart()
-                   ->mapToPosition(QPointF(this->current_x_axis_min,
-                                           this->current_y_axis_min))
+                   ->mapToPosition(QPointF(this->m_currentXAxisMin,
+                                           this->m_currentYAxisMin))
                    .y();
   qreal ymax = this->chart()
-                   ->mapToPosition(QPointF(this->current_x_axis_max,
-                                           this->current_y_axis_max))
+                   ->mapToPosition(QPointF(this->m_currentXAxisMax,
+                                           this->m_currentYAxisMax))
                    .y();
   this->removeTraceLines();
   this->m_xTraceLine.setLine(event->pos().x(), ymin, event->pos().x(), ymax);
@@ -276,9 +291,9 @@ void ChartView::addXTraceLine(QMouseEvent *event) {
 
 void ChartView::addXYTraceLine(QMouseEvent *event) {
   QPointF min = this->chart()->mapToPosition(
-      QPointF(this->current_x_axis_min, this->current_y_axis_min));
+      QPointF(this->m_currentXAxisMin, this->m_currentYAxisMin));
   QPointF max = this->chart()->mapToPosition(
-      QPointF(this->current_x_axis_max, this->current_y_axis_max));
+      QPointF(this->m_currentXAxisMax, this->m_currentYAxisMax));
   this->removeTraceLines();
   this->m_xTraceLine.setLine(event->pos().x(), min.y(), event->pos().x(),
                              max.y());
@@ -339,8 +354,8 @@ void ChartView::addChartPositionToLegend(qreal x, qreal y) {
 }
 
 bool ChartView::isOnPlot(qreal x, qreal y) {
-  if (x < this->current_x_axis_max && x > this->current_x_axis_min &&
-      y < this->current_y_axis_max && y > this->current_y_axis_min)
+  if (x < this->m_currentXAxisMax && x > this->m_currentXAxisMin &&
+      y < this->m_currentYAxisMax && y > this->m_currentYAxisMin)
     return true;
   else
     return false;
@@ -430,12 +445,27 @@ void ChartView::resetZoom() {
 void ChartView::resetAxisLimits() {
   if (this->chart()) {
     QRectF box = this->chart()->plotArea();
-    this->current_x_axis_min = this->chart()->mapToValue(box.bottomLeft()).x();
-    this->current_x_axis_max = this->chart()->mapToValue(box.topRight()).x();
-    this->current_y_axis_min = this->chart()->mapToValue(box.bottomLeft()).y();
-    this->current_y_axis_max = this->chart()->mapToValue(box.topRight()).y();
+    this->m_currentXAxisMin = this->chart()->mapToValue(box.bottomLeft()).x();
+    this->m_currentXAxisMax = this->chart()->mapToValue(box.topRight()).x();
+    this->m_currentYAxisMin = this->chart()->mapToValue(box.bottomLeft()).y();
+    this->m_currentYAxisMax = this->chart()->mapToValue(box.topRight()).y();
   }
   return;
+}
+
+void ChartView::setBackground(bool b) {
+  if (b) {
+    this->chart()->setBackgroundVisible(false);
+    this->setStyleSheet(
+        "#chart{background-color: white;"
+        "background-image: url(:/rsc/img/mov.png);"
+        "background-repeat: no-repeat; "
+        "background-attachment: fixed; "
+        "background-position: center;} ");
+  } else {
+    this->chart()->setBackgroundVisible(true);
+    this->setStyleSheet("#chart{background-color: white}");
+  }
 }
 
 QGraphicsTextItem *ChartView::infoItem() const { return m_infoItem; }
@@ -494,18 +524,18 @@ void ChartView::initializeAxisLimits() {
   if (this->style() == 2) this->xAxis()->applyNiceNumbers();
 
   QRectF box = this->chart()->plotArea();
-  this->x_axis_min = this->chart()->mapToValue(box.bottomLeft()).x();
-  this->y_axis_min = this->chart()->mapToValue(box.bottomLeft()).y();
-  this->x_axis_max = this->chart()->mapToValue(box.topRight()).x();
-  this->y_axis_max = this->chart()->mapToValue(box.topRight()).y();
-  this->current_x_axis_min = this->x_axis_min;
-  this->current_x_axis_max = this->x_axis_max;
-  this->current_y_axis_min = this->y_axis_min;
-  this->current_y_axis_max = this->y_axis_max;
-  this->current_x_axis_max = this->x_axis_max;
-  this->current_y_axis_max = this->y_axis_max;
-  this->current_x_axis_min = this->x_axis_min;
-  this->current_y_axis_min = this->y_axis_min;
+  this->m_xAxisMin = this->chart()->mapToValue(box.bottomLeft()).x();
+  this->m_yAxisMin = this->chart()->mapToValue(box.bottomLeft()).y();
+  this->m_xAxisMax = this->chart()->mapToValue(box.topRight()).x();
+  this->m_yAxisMax = this->chart()->mapToValue(box.topRight()).y();
+  this->m_currentXAxisMin = this->m_xAxisMin;
+  this->m_currentXAxisMax = this->m_xAxisMax;
+  this->m_currentYAxisMin = this->m_yAxisMin;
+  this->m_currentYAxisMax = this->m_yAxisMax;
+  this->m_currentXAxisMax = this->m_xAxisMax;
+  this->m_currentYAxisMax = this->m_yAxisMax;
+  this->m_currentXAxisMin = this->m_xAxisMin;
+  this->m_currentYAxisMin = this->m_yAxisMin;
   return;
 }
 
